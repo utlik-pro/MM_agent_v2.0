@@ -1,89 +1,47 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import CallWidget from './components/call-widget';
+import { CallWidget } from './components/call-widget';
 import './styles/index.css';
 
-// Configuration for the widget
+// Get the root element
+const rootElement = document.getElementById('voice-widget-root');
+if (!rootElement) {
+  console.error('Root element #voice-widget-root not found');
+  throw new Error('Root element not found');
+}
+
+// Create root and render
+const root = ReactDOM.createRoot(rootElement);
+
+// Widget configuration
 const widgetConfig = {
-  tokenEndpoint: '/api/token', // HTTP сервер agent.py
-  roomName: 'test-room',
+  tokenEndpoint: '/api/token',
+  roomName: 'voice-assistant-room',
 };
 
-const App: React.FC = () => {
-  const handleStateChange = (state: any) => {
-    console.log('Voice widget state changed:', state);
-    
-    // Send state to parent window if in iframe
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'VOICE_WIDGET_STATE_CHANGE',
-        state
-      }, '*');
-    }
-  };
-
-  const handleError = (error: Error) => {
-    console.error('Voice widget error:', error);
-    
-    // Send error to parent window if in iframe
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'VOICE_WIDGET_ERROR',
-        error: error.message
-      }, '*');
-    }
-  };
-
-  return (
-    <div className="w-full h-screen bg-transparent">
-      <CallWidget 
-        config={widgetConfig}
-        onStateChange={handleStateChange}
-        onError={handleError}
-      />
-    </div>
-  );
+// Error handling
+const handleError = (error: Error) => {
+  console.error('Voice widget error:', error);
 };
 
-// Initialize the widget
-const root = ReactDOM.createRoot(document.getElementById('root') as HTMLElement);
+// State change handling
+const handleStateChange = (state: any) => {
+  console.log('Widget state changed:', state);
+};
+
+// Render the CallWidget
 root.render(
   <React.StrictMode>
-    <App />
+    <div className="voice-widget-container">
+      <CallWidget 
+        config={widgetConfig}
+        onError={handleError}
+        onStateChange={handleStateChange}
+        className="voice-widget"
+      />
+    </div>
   </React.StrictMode>
 );
 
-// Global error handler
-window.addEventListener('error', (event) => {
-  console.error('Global error:', event.error);
-  
-  if (window.parent !== window) {
-    window.parent.postMessage({
-      type: 'VOICE_WIDGET_ERROR',
-      error: event.error?.message || 'Unknown error'
-    }, '*');
-  }
-});
-
-// Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', (event) => {
-  console.error('Unhandled promise rejection:', event.reason);
-  
-  if (window.parent !== window) {
-    window.parent.postMessage({
-      type: 'VOICE_WIDGET_ERROR',
-      error: event.reason?.message || 'Promise rejection'
-    }, '*');
-  }
-});
-
-// Send ready message to parent window
-window.addEventListener('load', () => {
-  if (window.parent !== window) {
-    window.parent.postMessage({
-      type: 'VOICE_WIDGET_READY'
-    }, '*');
-  }
-});
-
-export default App; 
+// Export for external use
+export { CallWidget }; 
