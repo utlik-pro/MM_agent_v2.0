@@ -24,7 +24,7 @@ const PhoneOffIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 
 
 const defaultConfig: VoiceWidgetConfig = {
-  tokenEndpoint: 'https://cors-anywhere.herokuapp.com/http://localhost:8765/get-token', // CORS proxy
+  tokenEndpoint: '/api/token', // Vercel serverless function
   roomName: 'test-room',
 };
 

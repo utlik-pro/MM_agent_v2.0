@@ -14,12 +14,28 @@ export default defineConfig({
         manualChunks: undefined,
       },
     },
+    // Optimize for production
+    minify: 'terser',
+    target: 'es2020',
+    sourcemap: false,
   },
   server: {
+    port: 3000,
+    cors: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:8765',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ''),
+      },
+    },
+  },
+  preview: {
     port: 3000,
     cors: true,
   },
   define: {
     global: 'globalThis',
   },
+  base: '/',
 }) 

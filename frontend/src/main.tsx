@@ -5,7 +5,7 @@ import './styles/index.css';
 
 // Configuration for the widget
 const widgetConfig = {
-  tokenEndpoint: 'https://cors-anywhere.herokuapp.com/http://localhost:8765/get-token', // CORS proxy
+  tokenEndpoint: '/api/token', // HTTP сервер agent.py
   roomName: 'test-room',
 };
 
