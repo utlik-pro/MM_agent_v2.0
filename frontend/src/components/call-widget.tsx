@@ -33,7 +33,7 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
   onStateChange,
   onError,
   className = '' 
-}) => {
+}: VoiceWidgetProps) => {
   const [callState, setCallState] = useState<CallState>({
     isConnected: false,
     isConnecting: false,
@@ -46,7 +46,7 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
 
   useEffect(() => {
     // Initialize client
-    clientRef.current = new LiveKitVoiceClient(finalConfig, (state) => {
+    clientRef.current = new LiveKitVoiceClient(finalConfig, (state: CallState) => {
       setCallState(state);
       onStateChange?.(state);
     });
