@@ -128,7 +128,7 @@ LIVEKIT_URL=wss://your-project.livekit.cloud
 ```typescript
 const defaultConfig: VoiceWidgetConfig = {
   tokenEndpoint: '/api/token',
-  roomName: 'voice-assistant-room',
+  roomName: 'test-room',
   // Дополнительные параметры...
 };
 ```
