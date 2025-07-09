@@ -58,7 +58,7 @@ export class LiveKitVoiceClient {
     
     const requestBody = {
       identity: this.config.userId || `user-${Date.now()}`,
-      room: this.config.roomName || 'voice-assistant-room',
+      room: this.config.roomName || 'test-room',
     };
     
     console.log('📤 Request payload:', requestBody);

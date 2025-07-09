@@ -16,7 +16,7 @@ const root = ReactDOM.createRoot(rootElement);
 // Widget configuration
 const widgetConfig = {
   tokenEndpoint: '/api/token',
-  roomName: 'voice-assistant-room',
+  roomName: 'test-room',
 };
 
 // Error handling
