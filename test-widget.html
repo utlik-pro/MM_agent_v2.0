@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест виджета - Минск Мир</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .description {
+            color: #666;
+            margin-bottom: 30px;
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        
+        .instructions h2 {
+            color: #495057;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+        
+        .instructions ol {
+            color: #6c757d;
+            padding-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 8px;
+        }
+        
+        .warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .warning strong {
+            color: #7d5a04;
+        }
+        
+        .code-block {
+            background: #f1f3f4;
+            border: 1px solid #e1e4e8;
+            border-radius: 6px;
+            padding: 16px;
+            margin: 15px 0;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 14px;
+            overflow-x: auto;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            body {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Тест голосового виджета</h1>
+        <p class="description">
+            Эта страница демонстрирует работу голосового виджета Минск Мир в iframe.
+        </p>
+        
+        <div class="warning">
+            <strong>⚠️ Внимание:</strong> Замените <code>your-project.vercel.app</code> на ваш реальный домен Vercel после развертывания!
+        </div>
+        
+        <div class="instructions">
+            <h2>📋 Инструкции по тестированию:</h2>
+            <ol>
+                <li>Разверните проект на Vercel</li>
+                <li>Замените URL в iframe ниже</li>
+                <li>Откройте эту страницу через HTTPS</li>
+                <li>Нажмите кнопку "Позвонить" в правом нижнем углу</li>
+                <li>Разрешите доступ к микрофону</li>
+                <li>Проверьте подключение к LiveKit</li>
+            </ol>
+        </div>
+        
+        <div class="code-block">
+            &lt;!-- Код для встраивания виджета --&gt;<br>
+            &lt;iframe <br>
+            &nbsp;&nbsp;src="https://your-project.vercel.app/widget"<br>
+            &nbsp;&nbsp;style="position:fixed; bottom:20px; right:20px; width:300px; height:80px; border:none; border-radius:10px; box-shadow:0 4px 20px rgba(0,0,0,0.15); z-index:9999;"<br>
+            &nbsp;&nbsp;allow="microphone"<br>
+            &nbsp;&nbsp;title="Голосовой помощник"<br>
+            &gt;&lt;/iframe&gt;
+        </div>
+        
+        <div class="success">
+            <strong>✅ Если виджет появился в правом нижнем углу</strong> — всё работает правильно!
+        </div>
+    </div>
+
+    <!-- ВИДЖЕТ - ЗАМЕНИТЕ URL НА ВАШ VERCEL ДОМЕН -->
+    <iframe 
+        src="https://your-project.vercel.app/widget" 
+        style="
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 300px;
+            height: 80px;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            z-index: 9999;
+            background: white;
+        "
+        allow="microphone"
+        title="Голосовой помощник Минск Мир"
+    ></iframe>
+
+    <script>
+        // Простая проверка загрузки iframe
+        window.addEventListener('load', function() {
+            const iframe = document.querySelector('iframe');
+            if (iframe) {
+                console.log('✅ Iframe загружен');
+                
+                // Проверяем доступность URL (базовая проверка)
+                if (iframe.src.includes('your-project.vercel.app')) {
+                    console.warn('⚠️ Не забудьте заменить your-project.vercel.app на ваш реальный домен!');
+                }
+            }
+        });
+        
+        // Обработка сообщений от виджета (если нужно)
+        window.addEventListener('message', function(event) {
+            // Здесь можно обрабатывать сообщения от виджета
+            console.log('📨 Сообщение от виджета:', event.data);
+        });
+    </script>
+</body>
+</html> 

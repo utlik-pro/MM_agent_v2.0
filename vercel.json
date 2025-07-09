@@ -6,6 +6,12 @@
   "devCommand": "cd frontend && npm run dev",
   "public": true,
 
+  "functions": {
+    "api/token.py": {
+      "runtime": "python3.9"
+    }
+  },
+
   "rewrites": [
     {
       "source": "/",
@@ -14,12 +20,9 @@
     {
       "source": "/widget",
       "destination": "/index.html"
-    },
-    {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
     }
   ],
+  
   "headers": [
     {
       "source": "/api/(.*)",

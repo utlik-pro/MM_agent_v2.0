@@ -46,29 +46,40 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
 
   useEffect(() => {
     // Initialize client
+    console.log('🚀 Initializing LiveKit client with config:', finalConfig);
     clientRef.current = new LiveKitVoiceClient(finalConfig, (state: CallState) => {
+      console.log('📡 State change received:', state);
       setCallState(state);
       onStateChange?.(state);
     });
 
     return () => {
       if (clientRef.current) {
+        console.log('🧹 Cleaning up LiveKit client');
         clientRef.current.destroy();
       }
     };
   }, []);
 
   const handleCall = async () => {
-    if (!clientRef.current) return;
+    console.log('🎯 Call button clicked!');
+    console.log('📊 Current call state:', callState);
+    
+    if (!clientRef.current) {
+      console.error('❌ LiveKit client not initialized');
+      return;
+    }
 
     try {
       if (callState.isConnected) {
+        console.log('📞 Disconnecting from call...');
         await clientRef.current.disconnect();
       } else {
+        console.log('📞 Starting call...');
         await clientRef.current.connect();
       }
     } catch (error) {
-      console.error('Call action failed:', error);
+      console.error('❌ Call action failed:', error);
       onError?.(error instanceof Error ? error : new Error('Call failed'));
     }
   };

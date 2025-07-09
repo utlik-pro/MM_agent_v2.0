@@ -1,0 +1,119 @@
+---
+alwaysApply: true
+---
+You are an expert in building TypeScript-based voice assistant widgets embedded via iframe, with backend integration through Python and LiveKit.
+
+Widget Scope
+- Create a React + TypeScript widget embedded via an iframe tag.
+- The widget is styled as a fixed bottom-right chat bubble, visible across all screen sizes.
+- UI consists of a circular assistant avatar (spinner/animation optional) and a call button with label "Позвонить".
+- On clicking the button:
+  - Request microphone access via the browser.
+  - Call a backend endpoint (`/token`) that returns a LiveKit access token.
+  - Use this token to connect to the LiveKit server via its JavaScript SDK.
+  - Join a room with a generated or anonymous user identity.
+  - Send audio to the backend assistant agent.
+- While connected, the button switches to red with label "Завершить".
+  - On click, it disconnects from the room and reverts to initial state.
+
+Token Handling
+- Widget does **not** generate tokens internally.
+- It makes a `fetch` request to the host site’s backend (same origin or configured CORS endpoint) to retrieve a token.
+- The backend uses LiveKit Python SDK to generate a token using API_KEY and SECRET.
+- The frontend must not expose secret keys.
+
+Backend (Python, LiveKit)
+- Expose a `/token` route (e.g., via FastAPI) that:
+  - Accepts an optional user ID or generates a UUID.
+  - Generates a LiveKit token (use `AccessToken` from `livekit` Python SDK).
+  - Sends back the token and room name (can be static or generated).
+- Ensure CORS allows iframe domain.
+
+Accessibility & Responsiveness
+- Ensure full mobile support.
+- Button is at least 44x44px for touch devices.
+- Use semantic HTML (e.g., `<button>`).
+- Provide ARIA label and role attributes.
+
+Styling and State
+- Use TailwindCSS for styling.
+- Use local component state (`isCalling`) to track whether user is in call.
+- Use clear visual transitions between states.
+- Optimize for light and dark mode (if host site uses prefers-color-scheme).
+
+File Structure
+- `/components/call-widget.tsx` — main component with call logic.
+- `/lib/livekit-client.ts` — handles SDK logic (connect/disconnect).
+- `/types/` — shared types if needed.
+- `/styles/` — any static styles if Tailwind is not enough.
+
+LiveKit Integration (Frontend)
+- Use `@livekit/client` npm package.
+- Call `connect(url, token)` to join room.
+- Use audio-only config; no video.
+- Track and teardown participant connection on unmount.
+
+Deployment & Embedding
+- Export the widget build as a single iframe-compatible HTML bundle.
+- Host it statically or serve via Next.js route.
+- Embed using:
+  ```html
+  <iframe src="https://yourdomain.com/widget" style="border:0;width:100px;height:50px;position:fixed;bottom:20px;right:20px;z-index:1000"></iframe>
+You are an expert in building TypeScript-based voice assistant widgets embedded via iframe, with backend integration through Python and LiveKit.
+
+Widget Scope
+- Create a React + TypeScript widget embedded via an iframe tag.
+- The widget is styled as a fixed bottom-right chat bubble, visible across all screen sizes.
+- UI consists of a circular assistant avatar (spinner/animation optional) and a call button with label "Позвонить".
+- On clicking the button:
+  - Request microphone access via the browser.
+  - Call a backend endpoint (`/token`) that returns a LiveKit access token.
+  - Use this token to connect to the LiveKit server via its JavaScript SDK.
+  - Join a room with a generated or anonymous user identity.
+  - Send audio to the backend assistant agent.
+- While connected, the button switches to red with label "Завершить".
+  - On click, it disconnects from the room and reverts to initial state.
+
+Token Handling
+- Widget does **not** generate tokens internally.
+- It makes a `fetch` request to the host site’s backend (same origin or configured CORS endpoint) to retrieve a token.
+- The backend uses LiveKit Python SDK to generate a token using API_KEY and SECRET.
+- The frontend must not expose secret keys.
+
+Backend (Python, LiveKit)
+- Expose a `/token` route (e.g., via FastAPI) that:
+  - Accepts an optional user ID or generates a UUID.
+  - Generates a LiveKit token (use `AccessToken` from `livekit` Python SDK).
+  - Sends back the token and room name (can be static or generated).
+- Ensure CORS allows iframe domain.
+
+Accessibility & Responsiveness
+- Ensure full mobile support.
+- Button is at least 44x44px for touch devices.
+- Use semantic HTML (e.g., `<button>`).
+- Provide ARIA label and role attributes.
+
+Styling and State
+- Use TailwindCSS for styling.
+- Use local component state (`isCalling`) to track whether user is in call.
+- Use clear visual transitions between states.
+- Optimize for light and dark mode (if host site uses prefers-color-scheme).
+
+File Structure
+- `/components/call-widget.tsx` — main component with call logic.
+- `/lib/livekit-client.ts` — handles SDK logic (connect/disconnect).
+- `/types/` — shared types if needed.
+- `/styles/` — any static styles if Tailwind is not enough.
+
+LiveKit Integration (Frontend)
+- Use `@livekit/client` npm package.
+- Call `connect(url, token)` to join room.
+- Use audio-only config; no video.
+- Track and teardown participant connection on unmount.
+
+Deployment & Embedding
+- Export the widget build as a single iframe-compatible HTML bundle.
+- Host it statically or serve via Next.js route.
+- Embed using:
+  ```html
+  <iframe src="https://yourdomain.com/widget" style="border:0;width:100px;height:50px;position:fixed;bottom:20px;right:20px;z-index:1000"></iframe>

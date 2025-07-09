@@ -1,0 +1,36 @@
+{
+  "name": "minsk-world-voice-assistant",
+  "version": "1.0.0",
+  "description": "Voice Assistant Widget with LiveKit Integration for Vercel",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "cd frontend && npm run dev",
+    "build": "cd frontend && npm install && npm run build",
+    "preview": "cd frontend && npm run preview",
+    "install-frontend": "cd frontend && npm install",
+    "clean": "rm -rf frontend/dist .vercel",
+    "deploy:vercel": "vercel --prod",
+    "deploy:preview": "vercel"
+  },
+  "repository": {
+    "type": "git",
+    "url": "."
+  },
+  "keywords": [
+    "voice-assistant",
+    "livekit",
+    "react",
+    "typescript",
+    "vercel",
+    "iframe",
+    "widget"
+  ],
+  "author": "Minsk World",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+} 

@@ -55,43 +55,74 @@ export class LiveKitVoiceClient {
 
   private async getAccessToken(): Promise<TokenResponse> {
     console.log('🔗 Fetching token from:', this.config.tokenEndpoint);
-    const response = await fetch(this.config.tokenEndpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        identity: this.config.userId || `user-${Date.now()}`,
-        room: this.config.roomName || 'voice-assistant-room',
-      }),
-    });
+    
+    const requestBody = {
+      identity: this.config.userId || `user-${Date.now()}`,
+      room: this.config.roomName || 'voice-assistant-room',
+    };
+    
+    console.log('📤 Request payload:', requestBody);
+    
+    try {
+      const response = await fetch(this.config.tokenEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!response.ok) {
-      throw new Error(`Failed to get access token: ${response.statusText}`);
+      console.log('📡 Response status:', response.status, response.statusText);
+      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Token request failed:', errorText);
+        throw new Error(`Failed to get access token: ${response.status} ${response.statusText} - ${errorText}`);
+      }
+
+      const tokenData = await response.json();
+      console.log('✅ Received token data:', {
+        ...tokenData,
+        token: tokenData.token ? `${tokenData.token.substring(0, 20)}...` : 'missing'
+      });
+      
+      return tokenData;
+    } catch (error) {
+      console.error('🚨 Network error getting token:', error);
+      throw error;
     }
-
-    return await response.json();
   }
 
   async connect(): Promise<void> {
+    console.log('🎯 Starting connection process...');
+    
     if (this.isConnecting || this.room?.state === 'connected') {
+      console.log('⚠️ Already connecting or connected, skipping...');
       return;
     }
 
     try {
       this.isConnecting = true;
       this.updateState({ isConnecting: true, error: null });
+      console.log('🔄 Set connecting state to true');
 
       // Request microphone permission first
+      console.log('🎤 Requesting microphone permission...');
       const hasPermission = await this.requestMicrophonePermission();
       if (!hasPermission) {
+        console.error('❌ Microphone permission denied');
         throw new Error('Microphone permission required');
       }
+      console.log('✅ Microphone permission granted');
 
       // Get access token
+      console.log('🔑 Getting access token...');
       const tokenData = await this.getAccessToken();
+      console.log('✅ Token received successfully');
       
       // Create room options
+      console.log('⚙️ Creating room options...');
       const roomOptions: RoomOptions = {
         adaptiveStream: true,
         dynacast: true,
@@ -104,20 +135,29 @@ export class LiveKitVoiceClient {
       };
 
       // Connect to room
+      console.log('🏠 Creating room and connecting to:', tokenData.wsUrl);
       this.room = new Room(roomOptions);
+      
+      console.log('🔗 Attempting to connect to LiveKit...');
       await this.room.connect(tokenData.wsUrl, tokenData.token);
+      console.log('✅ Connected to room successfully');
       
       // Set up event listeners
+      console.log('👂 Setting up event listeners...');
       this.setupEventListeners();
 
       // Create and publish audio track
+      console.log('🎵 Creating local audio track...');
       const audioTrack = await createLocalAudioTrack({
         echoCancellation: true,
         noiseSuppression: true,
         autoGainControl: true,
       });
+      console.log('✅ Audio track created');
 
+      console.log('📡 Publishing audio track...');
       await this.room.localParticipant.publishTrack(audioTrack);
+      console.log('✅ Audio track published');
 
       this.updateState({ 
         isConnected: true, 
@@ -125,7 +165,7 @@ export class LiveKitVoiceClient {
         error: null 
       });
 
-      console.log('✅ Connected to LiveKit voice room');
+      console.log('🎉 Connected to LiveKit voice room successfully!');
       
     } catch (error) {
       console.error('❌ Failed to connect to LiveKit:', error);

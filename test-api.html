@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API Token</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>LiveKit Token API Test</h1>
+    
+    <div class="test-section">
+        <h2>Test API Health Check (GET)</h2>
+        <button onclick="testGet()">Test GET /api/token</button>
+        <pre id="get-result"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Token Generation (POST)</h2>
+        <button onclick="testPost()">Test POST /api/token</button>
+        <pre id="post-result"></pre>
+    </div>
+    
+    <div class="test-section">
+        <h2>Environment Variables Check</h2>
+        <p>Нужные переменные окружения в Vercel:</p>
+        <ul>
+            <li><code>LIVEKIT_API_KEY</code> - ваш LiveKit API ключ</li>
+            <li><code>LIVEKIT_API_SECRET</code> - ваш LiveKit API секрет</li>
+            <li><code>LIVEKIT_URL</code> - URL вашего LiveKit сервера (например: wss://your-project.livekit.cloud)</li>
+        </ul>
+    </div>
+
+    <script>
+        async function testGet() {
+            const resultElement = document.getElementById('get-result');
+            resultElement.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('/api/token', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultElement.innerHTML = `<span class="success">✅ Success (${response.status})</span>\n${data}`;
+                } else {
+                    resultElement.innerHTML = `<span class="error">❌ Error (${response.status})</span>\n${data}`;
+                }
+            } catch (error) {
+                resultElement.innerHTML = `<span class="error">❌ Network Error</span>\n${error.message}`;
+            }
+        }
+        
+        async function testPost() {
+            const resultElement = document.getElementById('post-result');
+            resultElement.textContent = 'Testing...';
+            
+            try {
+                const response = await fetch('/api/token', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        identity: 'test-user',
+                        room: 'test-room'
+                    })
+                });
+                
+                const data = await response.text();
+                
+                if (response.ok) {
+                    resultElement.innerHTML = `<span class="success">✅ Success (${response.status})</span>\n${data}`;
+                } else {
+                    resultElement.innerHTML = `<span class="error">❌ Error (${response.status})</span>\n${data}`;
+                }
+            } catch (error) {
+                resultElement.innerHTML = `<span class="error">❌ Network Error</span>\n${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html> 

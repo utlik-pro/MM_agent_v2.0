@@ -124,8 +124,9 @@ class Assistant(Agent):
 if __name__ == "__main__":
     import sys
     if len(sys.argv) > 1 and sys.argv[1] == "http":
+        # HTTP режим для локальной разработки
         app = web.Application(middlewares=[cors_middleware])
-        app.router.add_post('/get-token', get_token)
+        app.router.add_post('/api/token', get_token)
         app.router.add_get('/health', health_check)
         
         print("🚀 LiveKit Agent HTTP сервер запускается...")
@@ -134,5 +135,10 @@ if __name__ == "__main__":
         
         web.run_app(app, port=8765, host='0.0.0.0')
     else:
+        # Агент режим для продакшена (Dokploy)
+        print("🚀 LiveKit Agent запускается...")
+        print(f"🎯 LiveKit URL: {WS_URL}")
+        print("👂 Готов слушать комнаты...")
+        
         agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
 
