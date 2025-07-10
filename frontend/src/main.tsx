@@ -16,7 +16,7 @@ const root = ReactDOM.createRoot(rootElement);
 // Widget configuration
 const widgetConfig = {
   tokenEndpoint: '/api/token',
-  roomName: 'test-room',
+  // roomName оставляем пустым - будет генерироваться уникальный sessionId
 };
 
 // Error handling
