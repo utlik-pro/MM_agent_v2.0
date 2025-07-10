@@ -1,67 +1,116 @@
-import { 
-  Room, 
-  RoomEvent, 
-  RoomOptions, 
-  VideoPresets, 
-  createLocalAudioTrack
-} from 'livekit-client';
-import type { TokenResponse, CallState, VoiceWidgetConfig } from '../types';
+import { Room, RoomEvent, Track, RemoteTrack, LocalAudioTrack, ParticipantKind } from 'livekit-client';
+import type { VoiceWidgetConfig, CallState } from '../types';
+
+interface TokenResponse {
+  token: string;
+  wsUrl: string;
+  room: string;
+  identity: string;
+}
 
 export class LiveKitVoiceClient {
   private room: Room | null = null;
-  private isConnecting = false;
+  private localAudioTrack: LocalAudioTrack | null = null;
   private config: VoiceWidgetConfig;
-  private onStateChange?: (state: CallState) => void;
+  private onStateChange: (state: CallState) => void;
+  private currentState: CallState = {
+    isConnected: false,
+    isConnecting: false,
+    error: null,
+    micPermission: null,
+  };
 
-  constructor(config: VoiceWidgetConfig, onStateChange?: (state: CallState) => void) {
+  constructor(config: VoiceWidgetConfig, onStateChange: (state: CallState) => void) {
     this.config = config;
     this.onStateChange = onStateChange;
-    console.log('✅ LiveKit client initialized with config:', config);
+    console.log('🔧 LiveKitVoiceClient initialized with config:', config);
   }
 
-  private updateState(updates: Partial<CallState>) {
-    if (this.onStateChange) {
-      const currentState: CallState = {
-        isConnected: this.room?.state === 'connected',
-        isConnecting: this.isConnecting,
-        error: null,
-        micPermission: null,
-        ...updates
-      };
-      this.onStateChange(currentState);
+  private updateState(newState: Partial<CallState>) {
+    this.currentState = { ...this.currentState, ...newState };
+    console.log('📊 State updated:', this.currentState);
+    this.onStateChange(this.currentState);
+  }
+
+  async connect(): Promise<void> {
+    if (this.currentState.isConnecting || this.currentState.isConnected) {
+      console.warn('⚠️ Already connecting or connected, ignoring connect request');
+      return;
     }
-  }
 
-  async requestMicrophonePermission(): Promise<boolean> {
+    console.log('🚀 Starting connection process...');
+    this.updateState({ isConnecting: true, error: null });
+
     try {
-      this.updateState({ micPermission: 'prompt' });
-      
+      // Step 1: Check microphone permission
+      console.log('🎤 Requesting microphone permission...');
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('✅ Microphone permission granted');
       
-      // Close the stream immediately as we just needed permission
+      // Close the test stream immediately
       stream.getTracks().forEach(track => track.stop());
-      
       this.updateState({ micPermission: 'granted' });
-      return true;
-    } catch (error) {
-      console.error('Microphone permission denied:', error);
-      this.updateState({ 
-        micPermission: 'denied',
-        error: 'Необходимо разрешение на использование микрофона'
+
+      // Step 2: Request token
+      console.log('🔑 Requesting LiveKit token...');
+      const tokenResponse = await this.requestToken();
+      console.log('✅ Token received:', { 
+        hasToken: !!tokenResponse.token, 
+        wsUrl: tokenResponse.wsUrl,
+        room: tokenResponse.room,
+        identity: tokenResponse.identity 
       });
-      return false;
+
+      // Step 3: Connect to room
+      console.log('🔗 Connecting to LiveKit room...');
+      this.room = new Room({
+        adaptiveStream: true,
+        dynacast: true,
+        publishDefaults: {
+          audioPreset: {
+            maxBitrate: 20_000,
+          },
+        },
+      });
+
+      // Add event listeners BEFORE connecting
+      this.setupRoomEventListeners();
+
+      // Connect to room
+      await this.room.connect(tokenResponse.wsUrl, tokenResponse.token);
+      console.log('✅ Connected to LiveKit room successfully');
+
+      // Step 4: Publish audio track
+      console.log('🎤 Publishing local audio track...');
+      await this.publishAudioTrack();
+      console.log('✅ Audio track published successfully');
+
+      this.updateState({ 
+        isConnected: true, 
+        isConnecting: false,
+        error: null 
+      });
+
+      console.log('🎉 Voice call connection completed successfully!');
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Connection failed';
+      console.error('❌ Connection failed:', error);
+      this.updateState({
+        isConnected: false,
+        isConnecting: false,
+        error: errorMessage,
+        micPermission: errorMessage.includes('Permission') ? 'denied' : this.currentState.micPermission
+      });
+      
+      // Clean up on error
+      await this.cleanup();
+      throw error;
     }
   }
 
-  private async getAccessToken(): Promise<TokenResponse> {
-    console.log('🔗 Fetching token from:', this.config.tokenEndpoint);
-    
-    const requestBody = {
-      identity: this.config.userId || `user-${Date.now()}`,
-      room: this.config.roomName || 'test-room',
-    };
-    
-    console.log('📤 Request payload:', requestBody);
+  private async requestToken(): Promise<TokenResponse> {
+    console.log('🔑 Making token request to:', this.config.tokenEndpoint);
     
     try {
       const response = await fetch(this.config.tokenEndpoint, {
@@ -69,11 +118,13 @@ export class LiveKitVoiceClient {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestBody),
+        body: JSON.stringify({
+          room: this.config.roomName,
+          identity: `user-${Date.now()}`,
+        }),
       });
 
-      console.log('📡 Response status:', response.status, response.statusText);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('📡 Token response status:', response.status);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -94,137 +145,101 @@ export class LiveKitVoiceClient {
     }
   }
 
-  async connect(): Promise<void> {
-    console.log('🎯 Starting connection process...');
-    
-    if (this.isConnecting || this.room?.state === 'connected') {
-      console.log('⚠️ Already connecting or connected, skipping...');
-      return;
-    }
+  private setupRoomEventListeners() {
+    if (!this.room) return;
 
-    try {
-      this.isConnecting = true;
-      this.updateState({ isConnecting: true, error: null });
-      console.log('🔄 Set connecting state to true');
+    console.log('🔧 Setting up room event listeners...');
 
-      // Request microphone permission first
-      console.log('🎤 Requesting microphone permission...');
-      const hasPermission = await this.requestMicrophonePermission();
-      if (!hasPermission) {
-        console.error('❌ Microphone permission denied');
-        throw new Error('Microphone permission required');
-      }
-      console.log('✅ Microphone permission granted');
+    this.room.on(RoomEvent.Connected, () => {
+      console.log('🏠 Room connected event fired');
+    });
 
-      // Get access token
-      console.log('🔑 Getting access token...');
-      const tokenData = await this.getAccessToken();
-      console.log('✅ Token received successfully');
-      
-      // Create room options
-      console.log('⚙️ Creating room options...');
-      const roomOptions: RoomOptions = {
-        adaptiveStream: true,
-        dynacast: true,
-        publishDefaults: {
-          videoCodec: 'h264',
-        },
-        videoCaptureDefaults: {
-          resolution: VideoPresets.h360.resolution,
-        },
-      };
-
-      // Connect to room
-      console.log('🏠 Creating room and connecting to:', tokenData.wsUrl);
-      this.room = new Room(roomOptions);
-      
-      console.log('🔗 Attempting to connect to LiveKit...');
-      await this.room.connect(tokenData.wsUrl, tokenData.token);
-      console.log('✅ Connected to room successfully');
-      
-      // Set up event listeners
-      console.log('👂 Setting up event listeners...');
-      this.setupEventListeners();
-
-      // Create and publish audio track
-      console.log('🎵 Creating local audio track...');
-      const audioTrack = await createLocalAudioTrack({
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-      });
-      console.log('✅ Audio track created');
-
-      console.log('📡 Publishing audio track...');
-      await this.room.localParticipant.publishTrack(audioTrack);
-      console.log('✅ Audio track published');
-
-      this.updateState({ 
-        isConnected: true, 
-        isConnecting: false,
-        error: null 
-      });
-
-      console.log('🎉 Connected to LiveKit voice room successfully!');
-      
-    } catch (error) {
-      console.error('❌ Failed to connect to LiveKit:', error);
+    this.room.on(RoomEvent.Disconnected, (reason) => {
+      console.log('🚪 Room disconnected:', reason);
       this.updateState({ 
         isConnected: false, 
         isConnecting: false,
-        error: error instanceof Error ? error.message : 'Connection failed' 
+        error: reason ? `Disconnected: ${reason}` : null
       });
-      throw error;
-    } finally {
-      this.isConnecting = false;
-    }
-  }
-
-  private setupEventListeners(): void {
-    if (!this.room) return;
-
-    this.room.on(RoomEvent.Connected, () => {
-      console.log('🔗 Room connected');
-      this.updateState({ isConnected: true, isConnecting: false });
     });
 
-    this.room.on(RoomEvent.Disconnected, () => {
-      console.log('🔌 Room disconnected');
-      this.updateState({ isConnected: false, isConnecting: false });
-    });
-
-    this.room.on(RoomEvent.Reconnecting, () => {
-      console.log('🔄 Room reconnecting...');
-      this.updateState({ isConnecting: true });
-    });
-
-    this.room.on(RoomEvent.Reconnected, () => {
-      console.log('✅ Room reconnected');
-      this.updateState({ isConnected: true, isConnecting: false });
+    this.room.on(RoomEvent.ConnectionStateChanged, (state) => {
+      console.log('🔄 Connection state changed:', state);
     });
 
     this.room.on(RoomEvent.ParticipantConnected, (participant) => {
-      console.log('👤 Participant connected:', participant.identity);
+      console.log('👤 Participant connected:', participant.identity, participant.kind);
+      
+      // Check if it's an agent
+      if (participant.kind === ParticipantKind.AGENT) {
+        console.log('🤖 AI Agent joined the room!');
+      }
     });
 
     this.room.on(RoomEvent.ParticipantDisconnected, (participant) => {
       console.log('👋 Participant disconnected:', participant.identity);
     });
 
-    this.room.on(RoomEvent.TrackSubscribed, (track, _publication, participant) => {
-      console.log('🎵 Track subscribed:', track.kind, 'from', participant.identity);
-      
-      if (track.kind === 'audio') {
+    this.room.on(RoomEvent.TrackSubscribed, (track: RemoteTrack, publication, participant) => {
+      console.log('📡 Track subscribed:', {
+        kind: track.kind,
+        source: track.source,
+        participant: participant.identity
+      });
+
+      if (track.kind === Track.Kind.Audio) {
+        console.log('🔊 Audio track from agent received');
         const audioElement = track.attach();
         document.body.appendChild(audioElement);
-        audioElement.play();
+        audioElement.play().catch(e => console.warn('Audio autoplay failed:', e));
       }
     });
 
-    this.room.on(RoomEvent.TrackUnsubscribed, (track, _publication, participant) => {
-      console.log('🔇 Track unsubscribed:', track.kind, 'from', participant.identity);
+    this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication, participant) => {
+      console.log('📴 Track unsubscribed:', track.kind, participant.identity);
       track.detach();
     });
+
+    this.room.on(RoomEvent.AudioPlaybackStatusChanged, () => {
+      console.log('🔊 Audio playback status changed');
+    });
+
+    // Add error handling
+    this.room.on(RoomEvent.MediaDevicesError, (error) => {
+      console.error('🎤 Media device error:', error);
+      this.updateState({ error: `Media error: ${error.message}` });
+    });
+
+    this.room.on(RoomEvent.ConnectionQualityChanged, (quality, participant) => {
+      console.log('📶 Connection quality:', quality, participant?.identity || 'local');
+    });
+  }
+
+  private async publishAudioTrack(): Promise<void> {
+    if (!this.room) {
+      throw new Error('Room not connected');
+    }
+
+    console.log('🎤 Creating local audio track...');
+    
+    try {
+      // Enable microphone for the local participant
+      await this.room.localParticipant.setMicrophoneEnabled(true);
+      console.log('✅ Microphone enabled successfully');
+
+      // Find the created audio track
+      const audioPublication = Array.from(this.room.localParticipant.audioTrackPublications.values())[0];
+      if (audioPublication?.track) {
+        this.localAudioTrack = audioPublication.track as LocalAudioTrack;
+        console.log('🎵 Local audio track created and published');
+      } else {
+        console.warn('⚠️ Could not find local audio track after enabling microphone');
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to publish audio track:', error);
+      throw error;
+    }
   }
 
   async disconnect(): Promise<void> {
@@ -250,10 +265,18 @@ export class LiveKitVoiceClient {
       
       console.log('✅ Disconnected from LiveKit');
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Disconnect failed';
       console.error('❌ Error disconnecting:', error);
       this.updateState({ 
-        error: error instanceof Error ? error.message : 'Disconnect failed' 
+        error: errorMessage
       });
+    }
+  }
+
+  private async cleanup(): Promise<void> {
+    console.log('🧹 Cleaning up LiveKit client...');
+    if (this.room) {
+      await this.disconnect();
     }
   }
 
@@ -264,9 +287,9 @@ export class LiveKitVoiceClient {
   getConnectionState(): CallState {
     return {
       isConnected: this.isConnected(),
-      isConnecting: this.isConnecting,
-      error: null,
-      micPermission: null,
+      isConnecting: this.currentState.isConnecting,
+      error: this.currentState.error,
+      micPermission: this.currentState.micPermission,
     };
   }
 
