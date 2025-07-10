@@ -2,6 +2,7 @@ import os
 import json
 import time
 import jwt
+import uuid
 from http.server import BaseHTTPRequestHandler
 import aiohttp
 import asyncio
@@ -111,7 +112,11 @@ class handler(BaseHTTPRequestHandler):
             
             # Extract parameters
             identity = data.get("identity", f"user-{int(time.time())}")
-            room = data.get("room", "test-room")
+            # Generate unique room name if not provided
+            room = data.get("room", f"room-{uuid.uuid4().hex[:12]}")
+            
+            # Log the room assignment for debugging
+            print(f"🏠 Room assignment: {room} for identity: {identity}")
             
             # Get environment variables
             api_key = os.environ.get("LIVEKIT_API_KEY", "test-key")

@@ -2,6 +2,11 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LiveKitVoiceClient } from '../lib/livekit-client';
 import type { CallState, VoiceWidgetConfig, VoiceWidgetProps } from '../types';
 
+// Function to generate unique session ID for each user
+const generateSessionId = (): string => {
+  return `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+};
+
 // Icons components
 const MicrophoneIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
   <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -25,7 +30,9 @@ const PhoneOffIcon = ({ className = "w-5 h-5" }: { className?: string }) => (
 
 const defaultConfig: VoiceWidgetConfig = {
   tokenEndpoint: '/api/token', // Vercel serverless function
-  roomName: 'test-room',
+  roomName: '', // Will be set dynamically for each user
+
+
 };
 
 export const CallWidget: React.FC<VoiceWidgetProps> = ({ 
@@ -42,11 +49,30 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
   });
 
   const clientRef = useRef<LiveKitVoiceClient | null>(null);
-  const finalConfig = { ...defaultConfig, ...config };
+  const sessionIdRef = useRef<string>('');
+  
+  // Generate unique session ID and create final config
+  const sessionId = sessionIdRef.current || (sessionIdRef.current = generateSessionId());
+  const finalConfig = { 
+    ...defaultConfig, 
+    ...config,
+    roomName: config.roomName || sessionId // Use provided roomName or unique sessionId
+  };
 
   useEffect(() => {
     // Initialize client
     console.log('🚀 Initializing LiveKit client with config:', finalConfig);
+    console.log('🆔 Unique session ID:', sessionId);
+    
+    // Send session ID to parent window for testing
+    if (window.parent && window.parent !== window) {
+      window.parent.postMessage({
+        type: 'widget-ready',
+        sessionId: sessionId,
+        roomName: finalConfig.roomName
+      }, '*');
+    }
+    
     clientRef.current = new LiveKitVoiceClient(finalConfig, (state: CallState) => {
       console.log('📡 State change received:', state);
       setCallState(state);
@@ -64,6 +90,7 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
   const handleCall = async () => {
     console.log('🎯 Call button clicked!');
     console.log('📊 Current call state:', callState);
+    console.log('🏠 Using room:', finalConfig.roomName);
     
     if (!clientRef.current) {
       console.error('❌ LiveKit client not initialized');
@@ -75,7 +102,7 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
         console.log('📞 Disconnecting from call...');
         await clientRef.current.disconnect();
       } else {
-        console.log('📞 Starting call...');
+        console.log(`📞 Starting call in room: ${finalConfig.roomName}...`);
         await clientRef.current.connect();
       }
     } catch (error) {

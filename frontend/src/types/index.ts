@@ -3,6 +3,7 @@ export interface VoiceWidgetConfig {
   wsUrl?: string;
   userId?: string;
   roomName?: string;
+  proxyEndpoints?: string[];
 }
 
 export interface TokenResponse {
