@@ -6,7 +6,6 @@ import './styles/index.css';
 // Get the root element
 const rootElement = document.getElementById('voice-widget-root');
 if (!rootElement) {
-  console.error('Root element #voice-widget-root not found');
   throw new Error('Root element not found');
 }
 
@@ -21,12 +20,12 @@ const widgetConfig = {
 
 // Error handling
 const handleError = (error: Error) => {
-  console.error('Voice widget error:', error);
+  // Error handled silently
 };
 
 // State change handling
 const handleStateChange = (state: any) => {
-  console.log('Widget state changed:', state);
+  // State changes handled silently
 };
 
 // Render the CallWidget

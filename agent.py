@@ -55,8 +55,6 @@ async def get_token(request):
                 status=400
             )
         
-        print(f"🎫 Creating token for user '{identity}' in room '{room}'")
-        
         now = int(time.time())
         ttl = 60 * 60  # 1 час
 
@@ -78,8 +76,6 @@ async def get_token(request):
         
         token = jwt.encode(payload, API_SECRET, algorithm="HS256")
         
-        print(f"✅ Token created successfully for room: {room}")
-        
         return web.json_response({
             "token": token, 
             "wsUrl": WS_URL,
@@ -89,7 +85,6 @@ async def get_token(request):
         })
         
     except Exception as e:
-        print(f"❌ Error creating token: {str(e)}")
         return web.json_response(
             {"error": f"Ошибка создания токена: {str(e)}"}, 
             status=500
@@ -100,17 +95,8 @@ async def health_check(request):
     return web.json_response({"status": "ok", "service": "livekit-agent"})
 
 async def entrypoint(ctx):
-    print(f"🏠 Agent connecting to room: {ctx.room.name}")
-    print(f"🆔 Room metadata: {ctx.room.metadata}")
-    print(f"👥 Current participants: {len(ctx.room.remote_participants)}")
-    
-    # Validate room name format for debugging
-    if ctx.room.name.startswith('session-'):
-        print(f"✅ Detected user session room: {ctx.room.name}")
-    elif ctx.room.name.startswith('room-'):
-        print(f"✅ Detected auto-generated room: {ctx.room.name}")
-    else:
-        print(f"ℹ️  Custom room name: {ctx.room.name}")
+    # Minimal logging for production
+    print(f"Agent connected to room: {ctx.room.name}")
     
     session = AgentSession()
 
@@ -128,32 +114,8 @@ async def entrypoint(ctx):
             noise_cancellation=noise_cancellation.BVC(),
         ),
     )
-
-    print(f"✅ Agent successfully joined room: {ctx.room.name}")
-    
-    # Set up room event monitoring
-    def on_participant_connected(participant):
-        print(f"👤 New participant joined room {ctx.room.name}: {participant.identity}")
-        
-    def on_participant_disconnected(participant):
-        print(f"👋 Participant left room {ctx.room.name}: {participant.identity}")
-    
-    # Subscribe to room events
-    ctx.room.on("participant_connected", on_participant_connected)
-    ctx.room.on("participant_disconnected", on_participant_disconnected)
     
     await ctx.connect()
-
-    # Personalized greeting based on room
-    room_specific_instructions = f"""
-{SESSION_INSTRUCTIONS}
-
-Вы подключились к комнате: {ctx.room.name}
-Это ваша персональная сессия с пользователем.
-Вы находитесь в изолированной комнате - никто другой не может слышать этот разговор.
-"""
-
-    print(f"🤖 Starting conversation in room: {ctx.room.name}")
     
     await session.generate_reply(
         instructions=SESSION_INSTRUCTIONS,
@@ -170,20 +132,6 @@ class Assistant(Agent):
     async def on_room_joined(self, room):
         """Called when agent joins a room"""
         self.current_room = room.name
-        print(f"🎉 Assistant successfully joined room: {room.name}")
-        print(f"📊 Room info - Participants: {len(room.remote_participants)}")
-        
-        # Set room-specific context
-        if hasattr(room, 'metadata') and room.metadata:
-            print(f"📋 Room metadata: {room.metadata}")
-            
-    async def on_participant_connected(self, participant):
-        """Called when a participant connects to the room"""
-        print(f"👤 Participant connected: {participant.identity} to room: {self.current_room}")
-        
-    async def on_participant_disconnected(self, participant):
-        """Called when a participant disconnects from the room"""
-        print(f"👋 Participant disconnected: {participant.identity} from room: {self.current_room}")
         
     def get_room_context(self):
         """Get current room context for responses"""
@@ -197,24 +145,14 @@ if __name__ == "__main__":
         app.router.add_post('/api/token', get_token)
         app.router.add_get('/health', health_check)
         
-        print("🚀 LiveKit Agent HTTP сервер запускается...")
-        print(f"🔗 URL: http://0.0.0.0:8765")
-        print(f"🎯 LiveKit URL: {WS_URL}")
-        print("📋 Поддерживаемые функции:")
-        print("  • Генерация токенов для динамических комнат")
-        print("  • Автоматическая диспетчеризация агентов")
-        print("  • Изоляция пользователей по комнатам")
+        print("LiveKit Agent HTTP сервер запускается...")
+        print(f"URL: http://0.0.0.0:8765")
         
         web.run_app(app, port=8765, host='0.0.0.0')
     else:
         # Агент режим для продакшена (Dokploy)
-        print("🚀 LiveKit Agent запускается...")
-        print(f"🎯 LiveKit URL: {WS_URL}")
-        print("🏠 Готов обрабатывать динамические комнаты:")
-        print("  • session-* (уникальные сессии пользователей)")
-        print("  • room-* (автоматически сгенерированные комнаты)")
-        print("  • любые другие имена комнат")
-        print("👂 Ожидание подключений к комнатам...")
+        print("LiveKit Agent запускается...")
+        print("Ожидание подключений к комнатам...")
         
         agents.cli.run_app(agents.WorkerOptions(entrypoint_fnc=entrypoint))
 

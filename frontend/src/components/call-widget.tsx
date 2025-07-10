@@ -61,9 +61,6 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
 
   useEffect(() => {
     // Initialize client
-    console.log('🚀 Initializing LiveKit client with config:', finalConfig);
-    console.log('🆔 Unique session ID:', sessionId);
-    
     // Send session ID to parent window for testing
     if (window.parent && window.parent !== window) {
       window.parent.postMessage({
@@ -74,39 +71,30 @@ export const CallWidget: React.FC<VoiceWidgetProps> = ({
     }
     
     clientRef.current = new LiveKitVoiceClient(finalConfig, (state: CallState) => {
-      console.log('📡 State change received:', state);
       setCallState(state);
       onStateChange?.(state);
     });
 
     return () => {
       if (clientRef.current) {
-        console.log('🧹 Cleaning up LiveKit client');
         clientRef.current.destroy();
       }
     };
   }, []);
 
   const handleCall = async () => {
-    console.log('🎯 Call button clicked!');
-    console.log('📊 Current call state:', callState);
-    console.log('🏠 Using room:', finalConfig.roomName);
     
     if (!clientRef.current) {
-      console.error('❌ LiveKit client not initialized');
       return;
     }
 
     try {
       if (callState.isConnected) {
-        console.log('📞 Disconnecting from call...');
         await clientRef.current.disconnect();
       } else {
-        console.log(`📞 Starting call in room: ${finalConfig.roomName}...`);
         await clientRef.current.connect();
       }
     } catch (error) {
-      console.error('❌ Call action failed:', error);
       onError?.(error instanceof Error ? error : new Error('Call failed'));
     }
   };

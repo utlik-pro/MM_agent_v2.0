@@ -221,8 +221,6 @@
             // Проверяем источник сообщения
             if (event.origin !== 'http://localhost:3000') return;
 
-            console.log('Получено сообщение от виджета:', event.data);
-
             switch (event.data.type) {
                 case 'VOICE_WIDGET_READY':
                     widgetStatus.innerHTML = '✅ Виджет готов к работе';
