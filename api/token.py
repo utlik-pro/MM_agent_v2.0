@@ -4,8 +4,6 @@ import time
 import jwt
 import uuid
 from http.server import BaseHTTPRequestHandler
-import aiohttp
-import asyncio
 
 class handler(BaseHTTPRequestHandler):
     
@@ -39,63 +37,8 @@ class handler(BaseHTTPRequestHandler):
         except Exception as e:
             self.send_error(500, f"Server error: {str(e)}")
 
-    async def dispatch_agent(self, room_name, identity):
-        """Dispatch agent to the room"""
-        try:
-            api_key = os.environ.get("LIVEKIT_API_KEY", "test-key")
-            api_secret = os.environ.get("LIVEKIT_API_SECRET", "test-secret")
-            ws_url = os.environ.get("LIVEKIT_URL", "wss://test.livekit.cloud")
-            
-            # Convert wss:// to https:// for API calls
-            api_url = ws_url.replace("wss://", "https://").replace("ws://", "http://")
-            
-            # Create agent dispatch request
-            dispatch_url = f"{api_url}/twirp/livekit.AgentDispatchService/CreateDispatch"
-            
-            # Generate admin token for API access
-            now = int(time.time())
-            admin_payload = {
-                "iss": api_key,
-                "sub": "admin",
-                "iat": now,
-                "exp": now + 300,  # 5 minutes
-                "nbf": now,
-                "video": {
-                    "roomAdmin": True,
-                    "room": room_name,
-                }
-            }
-            admin_token = jwt.encode(admin_payload, api_secret, algorithm="HS256")
-            
-            # Dispatch request payload
-            dispatch_data = {
-                "room": room_name,
-                "agent_name": "voice-assistant",
-                "metadata": json.dumps({
-                    "user_identity": identity,
-                    "dispatch_time": now
-                })
-            }
-            
-            headers = {
-                "Authorization": f"Bearer {admin_token}",
-                "Content-Type": "application/json"
-            }
-            
-            # Make the dispatch request
-            async with aiohttp.ClientSession() as session:
-                async with session.post(dispatch_url, json=dispatch_data, headers=headers, timeout=5) as resp:
-                    if resp.status == 200:
-                        print(f"✅ Agent dispatched to room: {room_name}")
-                        return True
-                    else:
-                        error_text = await resp.text()
-                        print(f"❌ Failed to dispatch agent: {resp.status} - {error_text}")
-                        return False
-                        
-        except Exception as e:
-            print(f"❌ Agent dispatch error: {str(e)}")
-            return False
+    # REMOVED: dispatch_agent method - was causing duplicate agents
+    # LiveKit automatically dispatches agents for new rooms, no manual dispatch needed
     
     def do_POST(self):
         """Handle POST requests (token generation)"""
@@ -144,15 +87,9 @@ class handler(BaseHTTPRequestHandler):
             
             token = jwt.encode(payload, api_secret, algorithm="HS256")
             
-            # Dispatch agent to room asynchronously
-            try:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                agent_dispatched = loop.run_until_complete(self.dispatch_agent(room, identity))
-                loop.close()
-            except Exception as e:
-                print(f"⚠️ Agent dispatch failed: {str(e)}")
-                agent_dispatched = False
+            # Agent will be automatically dispatched by LiveKit when user connects
+            # No need for manual dispatch - this was causing duplicate agents
+            agent_dispatched = "automatic"
             
             # Response data
             response_data = {

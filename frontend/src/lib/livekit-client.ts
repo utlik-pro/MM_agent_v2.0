@@ -13,6 +13,7 @@ export class LiveKitVoiceClient {
   private localAudioTrack: LocalAudioTrack | null = null;
   private config: VoiceWidgetConfig;
   private onStateChange: (state: CallState) => void;
+  private audioElements: HTMLAudioElement[] = []; // Track created audio elements
   private currentState: CallState = {
     isConnected: false,
     isConnecting: false,
@@ -36,6 +37,12 @@ export class LiveKitVoiceClient {
     if (this.currentState.isConnecting || this.currentState.isConnected) {
       console.warn('⚠️ Already connecting or connected, ignoring connect request');
       return;
+    }
+
+    // Clean up any existing audio elements from previous connections
+    if (this.audioElements.length > 0) {
+      console.log('🧹 Cleaning up audio elements from previous session');
+      this.cleanupAudioElements();
     }
 
     console.log('🚀 Starting connection process...');
@@ -184,19 +191,76 @@ export class LiveKitVoiceClient {
       console.log('📡 Track subscribed:', {
         kind: track.kind,
         source: track.source,
-        participant: participant.identity
+        participant: participant.identity,
+        trackSid: track.sid
       });
 
       if (track.kind === Track.Kind.Audio) {
-        console.log('🔊 Audio track from agent received');
-        const audioElement = track.attach();
+        // Check if we already have an audio element for this track
+        const existingElement = this.audioElements.find(el => 
+          el.srcObject === track.mediaStream
+        );
+        
+        if (existingElement) {
+          console.log('⚠️ Audio track already attached, skipping duplicate');
+          return;
+        }
+
+        console.log('🔊 Audio track from agent received, creating audio element');
+        const audioElement = track.attach() as HTMLAudioElement;
+        
+        // Track the audio element for cleanup
+        this.audioElements.push(audioElement);
+        
+        // Configure audio element
+        audioElement.autoplay = true;
+        audioElement.style.display = 'none'; // Hidden audio element
+        
+        // Add to DOM
         document.body.appendChild(audioElement);
-        audioElement.play().catch(e => console.warn('Audio autoplay failed:', e));
+        
+        // Attempt to play
+        audioElement.play()
+          .then(() => console.log('✅ Audio playback started'))
+          .catch(e => {
+            console.warn('⚠️ Audio autoplay failed:', e);
+            // Try to enable audio on next user interaction
+            document.addEventListener('click', () => {
+              audioElement.play().catch(console.warn);
+            }, { once: true });
+          });
       }
     });
 
     this.room.on(RoomEvent.TrackUnsubscribed, (track: RemoteTrack, publication, participant) => {
-      console.log('📴 Track unsubscribed:', track.kind, participant.identity);
+      console.log('📴 Track unsubscribed:', {
+        kind: track.kind, 
+        participant: participant.identity,
+        trackSid: track.sid
+      });
+      
+      if (track.kind === Track.Kind.Audio) {
+        // Find and remove corresponding audio elements
+        const elementsToRemove = this.audioElements.filter(el => 
+          el.srcObject === track.mediaStream
+        );
+        
+        elementsToRemove.forEach(element => {
+          console.log('🗑️ Removing audio element from DOM');
+          element.pause();
+          element.srcObject = null;
+          if (element.parentNode) {
+            element.parentNode.removeChild(element);
+          }
+        });
+        
+        // Update tracked elements
+        this.audioElements = this.audioElements.filter(el => 
+          !elementsToRemove.includes(el)
+        );
+      }
+      
+      // Detach the track
       track.detach();
     });
 
@@ -248,6 +312,9 @@ export class LiveKitVoiceClient {
     try {
       console.log('🔌 Disconnecting from LiveKit...');
       
+      // Clean up all audio elements first
+      this.cleanupAudioElements();
+      
       // Stop all local tracks
       this.room.localParticipant.audioTrackPublications.forEach((publication) => {
         publication.track?.stop();
@@ -273,8 +340,22 @@ export class LiveKitVoiceClient {
     }
   }
 
+  private cleanupAudioElements(): void {
+    console.log('🧹 Cleaning up audio elements...');
+    this.audioElements.forEach(element => {
+      console.log('🗑️ Removing audio element from DOM');
+      element.pause();
+      element.srcObject = null;
+      if (element.parentNode) {
+        element.parentNode.removeChild(element);
+      }
+    });
+    this.audioElements = [];
+  }
+
   private async cleanup(): Promise<void> {
     console.log('🧹 Cleaning up LiveKit client...');
+    this.cleanupAudioElements();
     if (this.room) {
       await this.disconnect();
     }
@@ -294,6 +375,8 @@ export class LiveKitVoiceClient {
   }
 
   destroy(): void {
+    console.log('💥 Destroying LiveKit client...');
+    this.cleanupAudioElements();
     if (this.room) {
       this.disconnect();
     }
