@@ -1,45 +1,100 @@
-import json
 import os
+import json
 import time
 import jwt
 from http.server import BaseHTTPRequestHandler
-from urllib.parse import parse_qs
+import aiohttp
+import asyncio
 
 class handler(BaseHTTPRequestHandler):
+    
     def do_OPTIONS(self):
         """Handle CORS preflight requests"""
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-        self.send_header('X-Frame-Options', 'ALLOWALL')
-        self.send_header('Content-Security-Policy', 'frame-ancestors *')
+        self.send_header('Access-Control-Max-Age', '86400')
         self.end_headers()
-    
+
     def do_GET(self):
         """Handle GET requests (health check)"""
         try:
-            response_data = {
-                "status": "ok",
-                "service": "livekit-token-service", 
-                "timestamp": int(time.time()),
-                "method": "GET"
-            }
-            
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.send_header('Access-Control-Allow-Origin', '*')
             self.send_header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS')
             self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
-            self.send_header('X-Frame-Options', 'ALLOWALL')
-            self.send_header('Content-Security-Policy', 'frame-ancestors *')
             self.end_headers()
             
-            response_json = json.dumps(response_data)
-            self.wfile.write(response_json.encode('utf-8'))
+            response_data = {
+                "status": "ok",
+                "message": "LiveKit Token Server is running",
+                "service": "mm-agent-v2.0"
+            }
+            
+            self.wfile.write(json.dumps(response_data).encode('utf-8'))
             
         except Exception as e:
-            self.send_error(500, f"Error: {str(e)}")
+            self.send_error(500, f"Server error: {str(e)}")
+
+    async def dispatch_agent(self, room_name, identity):
+        """Dispatch agent to the room"""
+        try:
+            api_key = os.environ.get("LIVEKIT_API_KEY", "test-key")
+            api_secret = os.environ.get("LIVEKIT_API_SECRET", "test-secret")
+            ws_url = os.environ.get("LIVEKIT_URL", "wss://test.livekit.cloud")
+            
+            # Convert wss:// to https:// for API calls
+            api_url = ws_url.replace("wss://", "https://").replace("ws://", "http://")
+            
+            # Create agent dispatch request
+            dispatch_url = f"{api_url}/twirp/livekit.AgentDispatchService/CreateDispatch"
+            
+            # Generate admin token for API access
+            now = int(time.time())
+            admin_payload = {
+                "iss": api_key,
+                "sub": "admin",
+                "iat": now,
+                "exp": now + 300,  # 5 minutes
+                "nbf": now,
+                "video": {
+                    "roomAdmin": True,
+                    "room": room_name,
+                }
+            }
+            admin_token = jwt.encode(admin_payload, api_secret, algorithm="HS256")
+            
+            # Dispatch request payload
+            dispatch_data = {
+                "room": room_name,
+                "agent_name": "voice-assistant",
+                "metadata": json.dumps({
+                    "user_identity": identity,
+                    "dispatch_time": now
+                })
+            }
+            
+            headers = {
+                "Authorization": f"Bearer {admin_token}",
+                "Content-Type": "application/json"
+            }
+            
+            # Make the dispatch request
+            async with aiohttp.ClientSession() as session:
+                async with session.post(dispatch_url, json=dispatch_data, headers=headers, timeout=5) as resp:
+                    if resp.status == 200:
+                        print(f"✅ Agent dispatched to room: {room_name}")
+                        return True
+                    else:
+                        error_text = await resp.text()
+                        print(f"❌ Failed to dispatch agent: {resp.status} - {error_text}")
+                        return False
+                        
+        except Exception as e:
+            print(f"❌ Agent dispatch error: {str(e)}")
+            return False
     
     def do_POST(self):
         """Handle POST requests (token generation)"""
@@ -84,13 +139,24 @@ class handler(BaseHTTPRequestHandler):
             
             token = jwt.encode(payload, api_secret, algorithm="HS256")
             
+            # Dispatch agent to room asynchronously
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                agent_dispatched = loop.run_until_complete(self.dispatch_agent(room, identity))
+                loop.close()
+            except Exception as e:
+                print(f"⚠️ Agent dispatch failed: {str(e)}")
+                agent_dispatched = False
+            
             # Response data
             response_data = {
                 "token": token,
                 "wsUrl": ws_url,
                 "identity": identity,
                 "room": room,
-                "success": True
+                "success": True,
+                "agent_dispatched": agent_dispatched
             }
             
             # Send response
